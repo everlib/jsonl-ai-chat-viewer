@@ -4,7 +4,7 @@ import type {
   ChatRole,
   ChatTurn,
   ParsedChatLog,
-} from "../../types/chat-log";
+} from "../../types";
 
 type JsonObject = Record<string, unknown>;
 

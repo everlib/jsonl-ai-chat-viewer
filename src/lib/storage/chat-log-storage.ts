@@ -1,4 +1,4 @@
-import type { ParsedChatLog } from "../../types/chat-log";
+import type { ParsedChatLog } from "../../types";
 
 const STORAGE_KEY = "jsonl-ai-chat-viewer.logs";
 

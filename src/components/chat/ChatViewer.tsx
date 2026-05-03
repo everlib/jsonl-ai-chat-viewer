@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { ChatBlock, ChatTurn, ParsedChatLog } from "../../types/chat-log";
+import type { ChatBlock, ChatTurn, ParsedChatLog } from "../../types";
 
 interface ChatViewerProps {
   log: ParsedChatLog | null;

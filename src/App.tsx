@@ -1,15 +1,13 @@
 import { useEffect, useState } from "react";
-import type { ParsedChatLog } from "./types/chat-log";
-import { ChatViewer } from "./components/chat/ChatViewer";
-import { Sidebar } from "./components/sidebar/Sidebar";
-import { InspectorPanel } from "./components/inspector/InspectorPanel";
+import type { ParsedChatLog } from "./types";
+import { ChatViewer, Sidebar, InspectorPanel } from "./components";
 import {
   clearChatLogs,
   loadChatLogs,
   removeChatLog,
   addChatLog,
-} from "./lib/storage/chat-log-storage";
-import { parseJsonlToChatLog } from "./lib/parsers/jsonl-parser";
+  parseJsonlToChatLog,
+} from "./lib";
 import "./index.css";
 
 export default function App() {

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import type { ParsedChatLog } from "../../types/chat-log";
+import type { ParsedChatLog } from "../../types";
 
 interface InspectorPanelProps {
   log: ParsedChatLog | null;

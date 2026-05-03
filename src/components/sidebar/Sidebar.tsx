@@ -1,8 +1,10 @@
 import { type ChangeEvent, useRef, useState } from "react";
-import type { ParsedChatLog } from "../../types/chat-log";
-import { exportChatLogToText } from "../../lib/export/export-text";
-import { exportChatLogToMarkdown } from "../../lib/export/export-md";
-import { downloadTextFile } from "../../lib/utils/download-text";
+import type { ParsedChatLog } from "../../types";
+import {
+  exportChatLogToText,
+  exportChatLogToMarkdown,
+  downloadTextFile,
+} from "../../lib";
 
 interface SidebarProps {
   logs: ParsedChatLog[];

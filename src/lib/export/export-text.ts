@@ -1,4 +1,4 @@
-import type { ChatBlock, ChatTurn, ParsedChatLog } from "../../types/chat-log";
+import type { ChatBlock, ChatTurn, ParsedChatLog } from "../../types";
 
 function formatBlock(block: ChatBlock): string {
   return [
