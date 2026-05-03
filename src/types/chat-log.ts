@@ -18,6 +18,7 @@ export interface ChatBlock {
   id: string;
   type: ChatBlockType;
   text: string;
+  label: string;
   raw: unknown;
 }
 
