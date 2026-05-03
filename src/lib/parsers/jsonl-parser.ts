@@ -25,16 +25,74 @@ function parseJson(line: string): unknown | null {
 }
 
 /**
- * Check if this JSONL entry is a conversation turn (user or assistant message)
- * Filter out meta entries like queue-operation, ai-title, attachment, file-history-snapshot
+ * Check if this is a real user prompt (not tool_result feedback or hook)
  */
-function isConversationEntry(obj: JsonObject): boolean {
-  const type = obj.type;
+function isRealUserPrompt(obj: JsonObject): boolean {
+  if (obj.type !== "user") return false;
   
-  // Only process user and assistant types
-  if (type === "user" || type === "assistant") {
-    return true;
+  const message = isObject(obj.message) ? obj.message : null;
+  if (!message) return false;
+  
+  const content = message.content;
+  if (!Array.isArray(content)) return false;
+  
+  // Check if this has real text content (not just tool_result)
+  for (const block of content) {
+    if (isObject(block)) {
+      // If it has tool_result, it's system feedback
+      if (block.type === "tool_result") {
+        return false;
+      }
+      // If it has real text, it's a user prompt
+      if (block.type === "text" && typeof block.text === "string" && block.text.trim()) {
+        return true;
+      }
+    }
   }
+  
+  return false;
+}
+
+/**
+ * Check if this is an assistant message with actual content
+ */
+function isAssistantMessage(obj: JsonObject): boolean {
+  if (obj.type !== "assistant") return false;
+  
+  const message = isObject(obj.message) ? obj.message : null;
+  if (!message) return false;
+  
+  const content = message.content;
+  if (!Array.isArray(content)) return false;
+  
+  // Must have at least one non-empty content block
+  for (const block of content) {
+    if (isObject(block)) {
+      const blockType = block.type;
+      if (blockType === "text" && typeof block.text === "string" && block.text.trim()) {
+        return true;
+      }
+      if (blockType === "thinking" && typeof block.thinking === "string" && block.thinking.trim()) {
+        return true;
+      }
+      if (blockType === "tool_use") {
+        return true;
+      }
+    }
+  }
+  
+  return false;
+}
+
+/**
+ * Check if this JSONL entry should be displayed in conversation
+ */
+function isDisplayableEntry(obj: JsonObject): boolean {
+  // Real user prompts
+  if (isRealUserPrompt(obj)) return true;
+  
+  // Assistant messages with content
+  if (isAssistantMessage(obj)) return true;
   
   return false;
 }
@@ -63,7 +121,16 @@ function getRole(obj: JsonObject): ChatRole {
 
 function getTimestamp(obj: JsonObject): string | undefined {
   const timestamp = obj.timestamp;
-  return typeof timestamp === "string" ? timestamp : undefined;
+  if (typeof timestamp === "string") {
+    // Format timestamp to be more readable
+    try {
+      const date = new Date(timestamp);
+      return date.toLocaleString();
+    } catch {
+      return timestamp;
+    }
+  }
+  return undefined;
 }
 
 function getContent(obj: JsonObject): unknown {
@@ -116,9 +183,8 @@ function extractBlockText(block: JsonObject): string {
   }
 
   if (type === "tool_use") {
-    const name = typeof block.name === "string" ? block.name : "unknown_tool";
     const input = block.input ?? {};
-    return `Tool: ${name}\n\n${stringifyUnknown(input)}`;
+    return stringifyUnknown(input);
   }
 
   if (type === "tool_result") {
@@ -143,10 +209,14 @@ function getBlockLabel(block: JsonObject): string {
     return name;
   }
   
+  if (type === "thinking") {
+    return "Thinking...";
+  }
+  
   return "";
 }
 
-function normalizeBlocks(content: unknown): ChatBlock[] {
+function normalizeBlocks(content: unknown, role: ChatRole): ChatBlock[] {
   if (typeof content === "string") {
     return [
       {
@@ -163,19 +233,38 @@ function normalizeBlocks(content: unknown): ChatBlock[] {
     return [];
   }
 
-  return content
-    .filter(isObject)
-    .map((block): ChatBlock => {
-      const type = getBlockType(block);
+  const blocks: ChatBlock[] = [];
+  
+  for (const item of content) {
+    if (!isObject(item)) continue;
+    
+    const type = getBlockType(item);
+    
+    // Skip tool_result blocks for user messages (they are system feedback)
+    if (role === "user" && type === "tool_result") continue;
+    
+    // Skip empty text blocks
+    if (type === "text") {
+      const text = typeof item.text === "string" ? item.text : "";
+      if (!text.trim()) continue;
+    }
+    
+    // Skip empty thinking blocks
+    if (type === "thinking") {
+      const thinking = typeof item.thinking === "string" ? item.thinking : "";
+      if (!thinking.trim()) continue;
+    }
 
-      return {
-        id: createId(),
-        type,
-        text: extractBlockText(block),
-        label: getBlockLabel(block),
-        raw: block,
-      };
+    blocks.push({
+      id: createId(),
+      type,
+      text: extractBlockText(item),
+      label: getBlockLabel(item),
+      raw: item,
     });
+  }
+
+  return blocks;
 }
 
 /**
@@ -225,10 +314,11 @@ export function parseJsonlToChatLog(
 
     if (!isObject(parsed)) continue;
     
-    // Skip non-conversation entries
-    if (!isConversationEntry(parsed)) continue;
-
-    const blocks = normalizeBlocks(getContent(parsed));
+    // Skip non-displayable entries
+    if (!isDisplayableEntry(parsed)) continue;
+    
+    const role = getRole(parsed);
+    const blocks = normalizeBlocks(getContent(parsed), role);
 
     // Skip empty turns
     if (blocks.length === 0) continue;
@@ -237,7 +327,7 @@ export function parseJsonlToChatLog(
       id: createId(),
       index: turns.length + 1,
       timestamp: getTimestamp(parsed),
-      role: getRole(parsed),
+      role,
       blocks,
       raw: parsed,
     });
