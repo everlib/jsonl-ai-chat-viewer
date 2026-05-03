@@ -24,14 +24,34 @@ function parseJson(line: string): unknown | null {
   }
 }
 
+/**
+ * Check if this JSONL entry is a conversation turn (user or assistant message)
+ * Filter out meta entries like queue-operation, ai-title, attachment, file-history-snapshot
+ */
+function isConversationEntry(obj: JsonObject): boolean {
+  const type = obj.type;
+  
+  // Only process user and assistant types
+  if (type === "user" || type === "assistant") {
+    return true;
+  }
+  
+  return false;
+}
+
 function getMessage(obj: JsonObject): JsonObject | null {
   const message = obj.message;
   return isObject(message) ? message : null;
 }
 
 function getRole(obj: JsonObject): ChatRole {
+  const type = obj.type;
+  
+  if (type === "user") return "user";
+  if (type === "assistant") return "assistant";
+  
   const message = getMessage(obj);
-  const role = message?.role ?? obj.role ?? obj.type;
+  const role = message?.role ?? obj.role;
 
   if (role === "user") return "user";
   if (role === "assistant") return "assistant";
@@ -43,7 +63,6 @@ function getRole(obj: JsonObject): ChatRole {
 
 function getTimestamp(obj: JsonObject): string | undefined {
   const timestamp = obj.timestamp;
-
   return typeof timestamp === "string" ? timestamp : undefined;
 }
 
@@ -80,6 +99,9 @@ function stringifyUnknown(value: unknown): string {
   }
 }
 
+/**
+ * Extract text from a block, handling special cases
+ */
 function extractBlockText(block: JsonObject): string {
   const type = getBlockType(block);
 
@@ -88,20 +110,40 @@ function extractBlockText(block: JsonObject): string {
   }
 
   if (type === "thinking") {
-    return typeof block.thinking === "string" ? block.thinking : "";
+    // Get thinking content, exclude signature field
+    const thinking = typeof block.thinking === "string" ? block.thinking : "";
+    return thinking;
   }
 
   if (type === "tool_use") {
     const name = typeof block.name === "string" ? block.name : "unknown_tool";
     const input = block.input ?? {};
-    return `${name}\n${stringifyUnknown(input)}`;
+    return `Tool: ${name}\n\n${stringifyUnknown(input)}`;
   }
 
   if (type === "tool_result") {
-    return stringifyUnknown(block.content ?? "");
+    const content = block.content;
+    if (typeof content === "string") {
+      return content;
+    }
+    return stringifyUnknown(content ?? "");
   }
 
   return stringifyUnknown(block);
+}
+
+/**
+ * Get a summary/label for collapsible blocks
+ */
+function getBlockLabel(block: JsonObject): string {
+  const type = getBlockType(block);
+  
+  if (type === "tool_use") {
+    const name = typeof block.name === "string" ? block.name : "Tool";
+    return name;
+  }
+  
+  return "";
 }
 
 function normalizeBlocks(content: unknown): ChatBlock[] {
@@ -111,6 +153,7 @@ function normalizeBlocks(content: unknown): ChatBlock[] {
         id: createId(),
         type: "text",
         text: content,
+        label: "",
         raw: content,
       },
     ];
@@ -129,9 +172,41 @@ function normalizeBlocks(content: unknown): ChatBlock[] {
         id: createId(),
         type,
         text: extractBlockText(block),
+        label: getBlockLabel(block),
         raw: block,
       };
     });
+}
+
+/**
+ * Merge consecutive assistant turns that are part of the same message
+ * Claude Code logs split assistant responses into multiple entries
+ */
+function mergeTurns(turns: ChatTurn[]): ChatTurn[] {
+  const merged: ChatTurn[] = [];
+  
+  for (const turn of turns) {
+    const lastTurn = merged[merged.length - 1];
+    
+    // Merge consecutive assistant turns
+    if (lastTurn && lastTurn.role === "assistant" && turn.role === "assistant") {
+      // Check if blocks overlap (same message split into multiple entries)
+      // Add only new blocks that don't duplicate existing ones
+      const existingBlockTexts = new Set(lastTurn.blocks.map(b => b.text.slice(0, 100)));
+      
+      for (const block of turn.blocks) {
+        const blockStart = block.text.slice(0, 100);
+        if (!existingBlockTexts.has(blockStart)) {
+          lastTurn.blocks.push(block);
+          existingBlockTexts.add(blockStart);
+        }
+      }
+    } else {
+      merged.push(turn);
+    }
+  }
+  
+  return merged;
 }
 
 export function parseJsonlToChatLog(
@@ -149,9 +224,13 @@ export function parseJsonlToChatLog(
     const parsed = parseJson(line);
 
     if (!isObject(parsed)) continue;
+    
+    // Skip non-conversation entries
+    if (!isConversationEntry(parsed)) continue;
 
     const blocks = normalizeBlocks(getContent(parsed));
 
+    // Skip empty turns
     if (blocks.length === 0) continue;
 
     turns.push({
@@ -164,11 +243,19 @@ export function parseJsonlToChatLog(
     });
   }
 
+  // Merge consecutive assistant turns
+  const mergedTurns = mergeTurns(turns);
+  
+  // Re-index after merging
+  mergedTurns.forEach((turn, i) => {
+    turn.index = i + 1;
+  });
+
   return {
     id: createId(),
     name: fileName,
     createdAt: new Date().toISOString(),
     sourceType: "jsonl",
-    turns,
+    turns: mergedTurns,
   };
 }

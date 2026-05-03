@@ -1,8 +1,12 @@
 import type { ChatBlock, ChatTurn, ParsedChatLog } from "../../types";
 
 function formatBlock(block: ChatBlock): string {
+  const typeLabel = block.type === "tool_use" && block.label 
+    ? `${block.type}: ${block.label}`
+    : block.type;
+    
   return [
-    `### ${block.type}`,
+    `### ${typeLabel}`,
     "",
     block.text,
     "",

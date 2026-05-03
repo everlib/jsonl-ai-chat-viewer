@@ -100,10 +100,11 @@ function BlockView({ block }: { block: ChatBlock }) {
   }
 
   if (block.type === "tool_use") {
+    const toolLabel = block.label || "Tool Use";
     return (
       <CollapsibleBlock
         type="tool_use"
-        label="Tool Use"
+        label={toolLabel}
         content={block.text}
         accentColor="var(--tool-accent)"
       />
@@ -114,7 +115,7 @@ function BlockView({ block }: { block: ChatBlock }) {
     return (
       <CollapsibleBlock
         type="tool_result"
-        label="Tool Result"
+        label="Result"
         content={block.text}
         accentColor="var(--tool-accent)"
         defaultExpanded={false}
