@@ -21,7 +21,8 @@ export function RawInspector({ log }: RawInspectorProps) {
     }
 
     await navigator.clipboard.writeText(rawJson);
-    setStatus("RAW JSON 복사 완료");
+    setStatus("RAW JSON 클립보드에 복사 완료");
+    setTimeout(() => setStatus(""), 3000);
   }
 
   return (
@@ -29,18 +30,36 @@ export function RawInspector({ log }: RawInspectorProps) {
       <header className="raw-inspector-header">
         <div>
           <h2>RAW Inspector</h2>
-          <p>현재 선택된 로그의 정규화된 내부 구조를 확인합니다.</p>
+          <p>로그의 정규화된 JSON 구조</p>
         </div>
 
         <button type="button" onClick={handleCopyRaw} disabled={!log}>
-          RAW 복사
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{ marginRight: 6 }}
+          >
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+          </svg>
+          JSON 복사
         </button>
       </header>
 
-      {status ? <p className="raw-inspector-status">{status}</p> : null}
+      {status ? <div className="raw-inspector-status">{status}</div> : null}
 
       <pre className="raw-inspector-body">
-        {rawJson || "선택된 로그가 없습니다."}
+        {rawJson || (
+          <span style={{ opacity: 0.5 }}>
+            선택된 로그가 없습니다.
+          </span>
+        )}
       </pre>
     </section>
   );

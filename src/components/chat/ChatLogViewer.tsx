@@ -5,23 +5,23 @@ interface ChatLogViewerProps {
 }
 
 function getRoleLabel(role: ChatTurn["role"]): string {
-  if (role === "user") return "사용자";
+  if (role === "user") return "USER";
   if (role === "assistant") return "AI";
-  if (role === "system") return "시스템";
-  if (role === "tool") return "도구";
+  if (role === "system") return "SYS";
+  if (role === "tool") return "TOOL";
 
-  return "알 수 없음";
+  return "?";
 }
 
 function getBlockLabel(type: ChatBlock["type"]): string {
-  if (type === "text") return "응답";
-  if (type === "thinking") return "thinking";
-  if (type === "tool_use") return "tool_use";
-  if (type === "tool_result") return "tool_result";
-  if (type === "attachment") return "attachment";
-  if (type === "summary") return "summary";
+  if (type === "text") return "Response";
+  if (type === "thinking") return "Thinking";
+  if (type === "tool_use") return "Tool Use";
+  if (type === "tool_result") return "Tool Result";
+  if (type === "attachment") return "Attachment";
+  if (type === "summary") return "Summary";
 
-  return "unknown";
+  return "Unknown";
 }
 
 function ChatBlockView({ block }: { block: ChatBlock }) {
@@ -58,8 +58,28 @@ export function ChatLogViewer({ log }: ChatLogViewerProps) {
   if (!log) {
     return (
       <main className="chat-empty">
-        <h2>JSONL 파일을 불러오세요.</h2>
-        <p>파일을 선택하면 사용자 프롬프트, thinking, 도구 사용, 도구 결과가 분리되어 표시됩니다.</p>
+        <svg
+          width="64"
+          height="64"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          style={{ opacity: 0.3, marginBottom: 24 }}
+        >
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+          <polyline points="14 2 14 8 20 8" />
+          <line x1="16" y1="13" x2="8" y2="13" />
+          <line x1="16" y1="17" x2="8" y2="17" />
+          <polyline points="10 9 9 9 8 9" />
+        </svg>
+        <h2>JSONL 파일을 불러오세요</h2>
+        <p>
+          파일을 선택하면 사용자 프롬프트, Thinking, 도구 사용, 
+          도구 결과가 분리되어 시각적으로 표시됩니다.
+        </p>
       </main>
     );
   }
@@ -70,7 +90,22 @@ export function ChatLogViewer({ log }: ChatLogViewerProps) {
         <div>
           <h1>{log.name}</h1>
           <p>
-            {log.sourceType} / {log.turns.length} turns / {log.createdAt}
+            <span style={{ 
+              display: "inline-flex", 
+              alignItems: "center", 
+              gap: 6,
+              padding: "4px 10px",
+              background: "var(--accent-muted)",
+              borderRadius: "var(--radius-full)",
+              fontSize: 12,
+              fontWeight: 500,
+              marginRight: 8
+            }}>
+              {log.sourceType}
+            </span>
+            {log.turns.length} turns
+            <span style={{ opacity: 0.5, margin: "0 8px" }}>|</span>
+            {log.createdAt}
           </p>
         </div>
       </header>
